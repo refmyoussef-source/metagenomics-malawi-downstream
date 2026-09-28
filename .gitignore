@@ -1,0 +1,46 @@
+# ===========================
+# R and RStudio
+# ===========================
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# ===========================
+# Rendered outputs (regenerate with Knit)
+# ===========================
+scripts/analysis.html
+scripts/analysis_files/
+
+# ===========================
+# Large data files (not for GitHub)
+# ===========================
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.sra
+*.bam
+*.sam
+*.out
+
+# ===========================
+# Databases
+# ===========================
+kraken2_db/
+*.k2d
+
+# ===========================
+# System files
+# ===========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===========================
+# Logs and temp
+# ===========================
+*.log
+*.tmp
+*~

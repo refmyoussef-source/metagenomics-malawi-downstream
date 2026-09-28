@@ -1,0 +1,318 @@
+---
+title: "Metagenomics Downstream Analysis"
+subtitle: "Diversity analysis of the gut microbiome in Malawian adults"
+author: "Youssef"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: show
+---
+
+## Setup
+
+```{r setup, include=FALSE}
+# Load libraries
+library(tidyverse)
+library(vegan)
+library(ggplot2)
+
+# Global settings
+set.seed(123)                  # For reproducibility
+theme_set(theme_minimal())     # Consistent plot theme
+options(scipen = 999)          # Disable scientific notation
+```
+
+## Data Loading
+
+### Metadata
+
+```{r load-metadata}
+# Read sample metadata
+metadata <- read.csv("../data/metadata.csv")
+
+# Keep only relevant columns
+metadata <- metadata[, c("Run", "pid", "visit", "t", "sample_type", 
+                          "arm_x", "ESBL", "calc_age", "ptsex", "hivstatus")]
+
+# Quick check
+dim(metadata)
+head(metadata[, c("Run", "pid", "visit", "t", "sample_type")])
+```
+
+### Bracken files
+
+```{r load-bracken}
+# List all bracken files
+bracken_files <- list.files("../data/bracken/", 
+                             pattern = "\\.bracken$", 
+                             full.names = TRUE)
+
+# Function to read one bracken file
+read_bracken <- function(f) {
+  df <- read.delim(f, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+  df$Sample <- sub("\\.bracken$", "", basename(f))
+  df <- df[, c("Sample", "name", "taxonomy_id", "taxonomy_lvl",
+               "kraken_assigned_reads", "added_reads",
+               "new_est_reads", "fraction_total_reads")]
+  return(df)
+}
+
+# Read and merge all files
+bracken_all <- do.call(rbind, lapply(bracken_files, read_bracken))
+
+# Check
+dim(bracken_all)
+head(bracken_all)
+```
+
+## Community Matrix
+
+We build a samples × species matrix using `new_est_reads` (Bracken-corrected abundances).
+
+```{r community-matrix}
+# Build samples × species matrix
+comm_matrix <- bracken_all %>%
+  select(Sample, name, new_est_reads) %>%
+  pivot_wider(names_from = name,
+              values_from = new_est_reads,
+              values_fill = 0)
+
+# Convert to data frame and set row names
+comm_matrix <- as.data.frame(comm_matrix)
+rownames(comm_matrix) <- comm_matrix$Sample
+comm_matrix$Sample <- NULL
+
+# Check dimensions
+dim(comm_matrix)
+comm_matrix[1:5, 1:5]
+```
+
+The matrix contains **`r nrow(comm_matrix)` samples** and **`r ncol(comm_matrix)` species**.
+
+## Alpha Diversity
+
+We compute four alpha diversity metrics for each sample:
+- **Observed** species richness
+- **Shannon** index (accounts for both richness and evenness)
+- **Simpson** index (probability that two individuals belong to the same species)
+- **Chao1** estimator (estimated true richness)
+
+```{r alpha-diversity}
+# Compute alpha diversity metrics
+alpha_div <- data.frame(
+  Sample     = rownames(comm_matrix),
+  Observed   = specnumber(comm_matrix),
+  Shannon    = diversity(comm_matrix, index = "shannon"),
+  Simpson    = diversity(comm_matrix, index = "simpson"),
+  InvSimpson = diversity(comm_matrix, index = "invsimpson"),
+  Chao1      = estimateR(comm_matrix)["S.chao1", ]
+)
+
+# Check
+dim(alpha_div)
+head(alpha_div)
+```
+
+### Merge with metadata
+
+```{r merge-alpha}
+# Merge alpha diversity with sample metadata
+alpha_meta <- merge(alpha_div,
+                    metadata[, c("Run", "pid", "visit", "t", "sample_type")],
+                    by.x = "Sample", by.y = "Run")
+
+# Check
+dim(alpha_meta)
+head(alpha_meta)
+```
+
+### Shannon Diversity by Visit
+
+```{r plot-shannon-visit, fig.width=8, fig.height=5}
+# Convert visit to factor for proper ordering
+alpha_meta$visit_f <- factor(alpha_meta$visit)
+
+ggplot(alpha_meta, aes(x = visit_f, y = Shannon, fill = visit_f)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.15, size = 2, alpha = 0.6) +
+  labs(
+    title = "Shannon Diversity by Visit",
+    x = "Visit",
+    y = "Shannon Index"
+  ) +
+  theme(legend.position = "none")
+```
+
+### Shannon Diversity over Time — All Patients
+
+```{r plot-shannon-time, fig.width=9, fig.height=5}
+ggplot(alpha_meta, aes(x = t, y = Shannon, color = pid, group = pid)) +
+  geom_line(size = 0.8, alpha = 0.7) +
+  geom_point(size = 2.5) +
+  labs(
+    title = "Shannon Diversity over Time — All Patients",
+    x = "Days since enrollment",
+    y = "Shannon Index",
+    color = "Patient"
+  )
+```
+
+### Per-Patient Trajectories
+
+To investigate individual patterns, we plot the trajectory of each patient separately.
+
+```{r plot-shannon-facet, fig.width=10, fig.height=6}
+ggplot(alpha_meta, aes(x = t, y = Shannon)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(size = 3, color = "darkred") +
+  geom_text(aes(label = paste0("v", visit)), vjust = -1, size = 3.5) +
+  facet_wrap(~ pid, ncol = 3, scales = "free_x") +
+  labs(
+    title = "Shannon Diversity Trajectories per Patient",
+    x = "Days since enrollment",
+    y = "Shannon Index"
+  )
+```
+
+## Beta Diversity
+
+Beta diversity quantifies differences **between** samples. We use the Bray-Curtis distance, which is standard for microbiome data.
+
+```{r beta-diversity}
+# Compute Bray-Curtis distance matrix
+bc_dist <- vegdist(comm_matrix, method = "bray")
+
+# Check
+class(bc_dist)
+```
+
+### PCoA Ordination
+
+Principal Coordinates Analysis (PCoA) projects samples into 2D space based on their Bray-Curtis distances.
+
+```{r pcoa}
+# Run PCoA
+pcoa_res <- cmdscale(bc_dist, k = 2, eig = TRUE)
+
+# Variance explained by each axis
+var_explained <- round(pcoa_res$eig[1:2] / 
+                       sum(pcoa_res$eig[pcoa_res$eig > 0]) * 100, 1)
+
+# Extract coordinates
+pcoa_df <- data.frame(
+  Sample = rownames(pcoa_res$points),
+  PC1    = pcoa_res$points[, 1],
+  PC2    = pcoa_res$points[, 2]
+)
+
+# Merge with metadata
+pcoa_df <- merge(pcoa_df,
+                 metadata[, c("Run", "pid", "visit", "t", "sample_type")],
+                 by.x = "Sample", by.y = "Run")
+
+pcoa_df$visit_f <- factor(pcoa_df$visit)
+
+head(pcoa_df)
+```
+
+### PCoA — Colored by Patient
+
+```{r pcoa-patient, fig.width=9, fig.height=6}
+ggplot(pcoa_df, aes(x = PC1, y = PC2, color = pid)) +
+  geom_point(size = 4, alpha = 0.85) +
+  labs(
+    title = "PCoA (Bray-Curtis) — Colored by Patient",
+    x = paste0("PC1 (", var_explained[1], "%)"),
+    y = paste0("PC2 (", var_explained[2], "%)"),
+    color = "Patient"
+  )
+```
+
+### PCoA — Colored by Visit
+
+```{r pcoa-visit, fig.width=9, fig.height=6}
+ggplot(pcoa_df, aes(x = PC1, y = PC2, color = visit_f)) +
+  geom_point(size = 4, alpha = 0.85) +
+  labs(
+    title = "PCoA (Bray-Curtis) — Colored by Visit",
+    x = paste0("PC1 (", var_explained[1], "%)"),
+    y = paste0("PC2 (", var_explained[2], "%)"),
+    color = "Visit"
+  )
+```
+
+The two plots show that samples tend to cluster more strongly by **patient** than by **visit**, suggesting that host-specific factors dominate over antibiotic-driven temporal shifts in this pilot.
+
+
+
+
+
+## Statistical Testing
+
+To test whether microbiome composition differs significantly by **visit** or by **patient**, we run PERMANOVA (adonis2) on the Bray-Curtis distance matrix.
+
+### PERMANOVA — Visit
+
+```{r permanova-visit}
+permanova_visit <- adonis2(bc_dist ~ visit,
+                           data = pcoa_df,
+                           permutations = 999)
+permanova_visit
+```
+
+### PERMANOVA — Patient
+
+```{r permanova-patient}
+permanova_patient <- adonis2(bc_dist ~ pid,
+                             data = pcoa_df,
+                             permutations = 999)
+permanova_patient
+```
+
+### Interpretation
+
+```{r extract-permanova}
+# Extract R² and p-values as simple variables
+visit_r2  <- round(permanova_visit$R2[1] * 100, 1)
+visit_p   <- round(permanova_visit$`Pr(>F)`[1], 3)
+patient_r2 <- round(permanova_patient$R2[1] * 100, 1)
+patient_p  <- round(permanova_patient$`Pr(>F)`[1], 3)
+```
+
+**Visit** explains only **`r visit_r2`%** of the variance (p = `r visit_p`), whereas **Patient** explains **`r patient_r2`%** (p = `r patient_p`).
+
+This indicates that **host-specific factors** dominate microbiome composition, while short-term antibiotic exposure has a weaker (and non-significant) effect in this small pilot (n = 6 patients, 24 samples).
+
+
+## Save Results
+
+We save the main tables and figures so they can be reused or shared.
+
+```{r save-results}
+# Save alpha diversity table
+write.csv(alpha_meta,
+          "../results/alpha_diversity.csv",
+          row.names = FALSE)
+
+# Save beta diversity coordinates
+write.csv(pcoa_df,
+          "../results/beta_diversity_pcoa.csv",
+          row.names = FALSE)
+
+# Save PERMANOVA results
+permanova_summary <- data.frame(
+  Factor    = c("Visit", "Patient"),
+  R2_percent = c(visit_r2, patient_r2),
+  p_value    = c(visit_p, patient_p)
+)
+write.csv(permanova_summary,
+          "../results/permanova_summary.csv",
+          row.names = FALSE)
+
+cat("Results saved successfully.\n")
+```
+
+
