@@ -140,7 +140,7 @@ metagenomics-malawi-downstream/
   - `phyloseq` (optional, from Bioconductor)
 ```
 
----
+
 ## Author
 
 **Youssef**  
