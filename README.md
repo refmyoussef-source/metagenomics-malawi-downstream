@@ -123,10 +123,6 @@ metagenomics-malawi-downstream/
    BiocManager::install("phyloseq")
    ```
 
-4. **Knit the document**
-   - Click the **Knit** button in RStudio
-   - This will regenerate `analysis_report.html` and all figures
-
 ---
 
 ## Requirements
