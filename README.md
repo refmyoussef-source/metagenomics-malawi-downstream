@@ -146,7 +146,7 @@ metagenomics-malawi-downstream/
 **Youssef**  
 Bioinformatics / Metagenomics analysis
 
----
+
 
 ## Acknowledgments
 
@@ -154,7 +154,6 @@ Bioinformatics / Metagenomics analysis
 - Data source: NCBI BioProject [PRJNA869071](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA869071)
 - Tools: fastp, Kraken2, Bracken, vegan, phyloseq
 
----
 
 ## License
 
