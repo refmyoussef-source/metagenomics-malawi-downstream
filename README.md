@@ -147,7 +147,7 @@ Bioinformatics / Metagenomics analysis
 ## Acknowledgments
 
 - Original study: *Quantifying the bystander effect of antimicrobial use on the diversity and resistome of the gut microbiome in Malawian adults* (Nature Communications, 2025)
-- Data source: NCBI BioProject [PRJNA869071](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA869071)
+- Data source: NCBI BioProject [PRJNA869071]
 - Tools: fastp, Kraken2, Bracken, vegan, phyloseq
 
 
