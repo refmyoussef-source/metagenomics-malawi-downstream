@@ -20,7 +20,7 @@ The raw sequencing data was processed with an upstream pipeline (fastp → Krake
 
 Antibiotic treatment for sepsis has an unintended consequence: it exerts a **bystander effect** on the gut microbiome, altering bacterial composition and the resistome. Understanding these dynamics is critical for antimicrobial stewardship, especially in low-income settings where antimicrobial resistance is disproportionately prevalent.
 
-This pilot project is part of a larger study conducted in **Blantyre, Malawi**, aiming to quantify these changes using longitudinal sampling and Bayesian modelling.
+
 
 ## Data
 
