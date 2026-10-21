@@ -48,7 +48,7 @@ Each `.bracken` file contains species-level abundance estimates produced by Brac
 | Step | Tool | Purpose |
 |---|---|---|
 | 1. Download | SRA Toolkit | Retrieve raw reads from NCBI (BioProject PRJNA869071) |
-| 2. QC & Trimming | fastp v1.3.7 | Adapter removal, quality filtering (Q20, min length 50 bp) |
+| 2. QC & Trimming | fastp v1.3.7 | Adapter removal, quality filtering (Q20, min length 50bp) |
 | 3. Taxonomic Profiling | Kraken2 v2.1.2 | Classify reads against Standard database |
 | 4. Abundance Correction | Bracken v3.0.1 | Bayesian re-estimation of species abundances (k=150, level=Species) |
 
@@ -79,7 +79,7 @@ PERMANOVA shows that **host-specific factors** explain ~5× more variance than a
 
 ### Interpretation
 
-The strong patient effect suggests that factors specific to each individual — such as diet, lifestyle, genetics, and other unmeasured host variables — shape the microbiome more than short-term antibiotic exposure in a small pilot cohort. A larger sample size (as in the full Malawi cohort, n = 425) is needed to detect significant antibiotic effects.
+The strong patient effect suggests that factors specific to each individual — such as diet, lifestyle, genetics, and other unmeasured host variables — shape the microbiome more than short-term antibiotic exposure in small pilot cohort. A larger sample size (as in the full Malawi cohort, n = 425) is needed to detect significant antibiotic effects.
 
 ## Repository Structure
 
